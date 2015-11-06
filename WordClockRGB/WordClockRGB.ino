@@ -1,8 +1,8 @@
 /***************************************************************************
  *                                                                         *
- *  W O R D C L O C K   - A clock that tells the time using words.         *
+ *  W O R D C L O C K R G B   - A clock that tells the time using words.   *
  *                                                                         *
- * Hardware: Arduino Duemilanove with a set of individual LEDs under a     *
+ * Hardware: Arduino with a set of individual LEDs under a                 *
  * word stencil.                                                           *
  *                                                                         *
  *                                                                         *
@@ -42,64 +42,68 @@
 #include <Time.h>  
 #include <Wire.h>  
 #include <DS1307RTC.h> 
+#include <Adafruit_NeoPixel.h>
 
-// Display output pin assignments
-#define MTEN 	Display1=Display1 | (1<<0)  
-#define HALF	Display1=Display1 | (1<<1)
-#define QUARTER	Display1=Display1 | (1<<2)
-#define TWENTY	Display1=Display1 | (1<<3)
-#define MFIVE	Display1=Display1 | (1<<4)
-#define ITIS	Display1=Display1 | (1<<5)
-#define PAST	Display1=Display1 | (1<<6)
-#define UNUSED1	Display1=Display1 | (1<<7)
+// Matrix types defined at https://learn.adafruit.com/adafruit-neopixel-uberguide/neomatrix-library
+// progressive: Row Major Progressive
+// zigzag: Row Major Zigzag
+#define MATRIX_TYPE "progressive"
 
-#define TO	Display2=Display2 | (1<<0)
-#define ONE	Display2=Display2 | (1<<1)
-#define TWO	Display2=Display2 | (1<<2)
-#define THREE	Display2=Display2 | (1<<3)
-#define FOUR	Display2=Display2 | (1<<4)
-#define HFIVE	Display2=Display2 | (1<<5)
-#define SIX	Display2=Display2 | (1<<6)
-#define UNUSED2	Display2=Display2 | (1<<7)
+// Parameter 1 = number of pixels in strip
+// Parameter 2 = pin number (most are valid)
+// Parameter 3 = pixel type flags, add together as needed:
+//   NEO_RGB     Pixels are wired for RGB bitstream
+//   NEO_GRB     Pixels are wired for GRB bitstream
+//   NEO_KHZ400  400 KHz bitstream (e.g. FLORA pixels)
+//   NEO_KHZ800  800 KHz bitstream (e.g. High Density LED strip)
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(256, 6, NEO_GRB + NEO_KHZ800);
 
-#define SEVEN	Display3=Display3 | (1<<0)
-#define EIGHT	Display3=Display3 | (1<<1)
-#define NINE	Display3=Display3 | (1<<2)
-#define HTEN	Display3=Display3 | (1<<3)
-#define ELEVEN	Display3=Display3 | (1<<4)
-#define TWELVE	Display3=Display3 | (1<<5)
-#define OCLOCK  Display3=Display3 | (1<<6)
-#define UNUSED3	Display3=Display3 | (1<<7)
+struct coords {
+  int y;
+  int x;
+};
 
-#define MIN1	Display4=Display4 | (1<<0)
-#define MIN2	Display4=Display4 | (1<<1)
-#define MIN3	Display4=Display4 | (1<<2)
-#define MIN4	Display4=Display4 | (1<<3)
-#define UNUSED4	Display4=Display4 | (1<<4)
-#define UNUSED5	Display4=Display4 | (1<<5)
-#define UNUSED6 Display4=Display4 | (1<<6)
-#define UNUSED7	Display4=Display4 | (1<<7)
+
+#define NUMROWS 16
+#define NUMCOLS 16
+
+coords ITIS[] = {{2,2},{2,3},{2,5},{2,6}};
+coords QUARTER[] = {{3,2},{3,4},{3,5},{3,6},{3,7},{3,8},{3,9},{3,10}};
+coords TWENTY[] =  {{4,2}, {4,3}, {4,4}, {4,5}, {4,6}, {4,7}};
+coords MFIVE[] = {{4,8}, {4,9}, {4,10}, {4,11}};
+coords HALF[] = {{5,2}, {5,3}, {5,4}, {5,5}};
+coords MTEN[] = {{5,7}, {5,8}, {5,9}};
+coords TO[] = {{5,11}, {5,12}}; 
+coords PAST[] = {{6,2}, {6,3}, {6,4}, {6,5}}; //   {int 6,[2,3,4,5]}
+coords NINE[] = {{6,9}, {6,10}, {6,11}, {6,12}}; //    {int 6,[9,10,11,12]}
+coords ONE[] = {{7,2}, {7,3}, {7,4}}; //     {int 7,[2,3,4]}
+coords SIX[] = {{7,5}, {7,6}, {7,7}}; //     {int 7,[5,6,7]}
+coords THREE[] = {{7,8}, {7,9}, {7,10}, {7,11}, {7,12}}; //   {int 7,[8,9,10,11,12]}
+coords FOUR[] = {{8,2}, {8,3}, {8,4}, {8,5}}; //    {int 8,[2,3,4,5]}
+coords HFIVE[] = {{8,6}, {8,7}, {8,8}, {8,9}}; //   {int 8,[6,7,8,9]}
+coords TWO[] = {{8,10}, {8,11}, {8,12}}; //     {int 8,[10,11,12]}
+coords EIGHT[] = {{9,2}, {9,3}, {9,4}, {9,5}, {9,6}}; //   {int 9,[2,3,4,5,6]}
+coords ELEVEN[] = {{9,7}, {9,8}, {9,9}, {9,10}, {9,11}, {9,12}}; //  {int 9,[7,8,9,10,11,12]}
+coords SEVEN[] = {{10,2}, {10,3}, {10,4}, {10,5}, {10,6}}; //   {int 10,[2,3,4,5,6]}
+coords TWELVE[] = {{10,7}, {10,8}, {10,9}, {10,10}, {10,11}, {10,12}}; //  {int 10,[7,8,9,10,11,12]}
+coords HTEN[] = {{11,2}, {11,3}, {11,4}}; //    {int 11,[2,3,4]}
+coords OCLOCK[] = {{11,7}, {11,8}, {11,9}, {11,10}, {11,11}, {11,12}}; //  {int 11,[7,8,9,10,11,12]}
+coords MIN1[] = {{0,0}}; //    {int 1, [1]}
+coords MIN2[] = {{0,15}}; //    {int 15, [1]}
+coords MIN3[] = {{15,0}}; //    {int 15, [15]}
+coords MIN4[] = {{15,15}}; //    {int 1, [15]}
 
 static unsigned long msTick =0;  // the number of Millisecond Ticks since we last 
                                  // incremented the second counter
-char Display1=0, Display2=0, Display3=0, Display4=0;
 
 // hardware constants
-int LEDClockPin=6;
-int LEDDataPin=7;
-int LEDStrobePin=8;
-
-int HourButtonPin=3;
+int HourButtonPin=4;
 int hourButtonDown = 0;
 
-int MinuteButtonPin=2;
+int MinuteButtonPin=5;
 int minuteButtonDown = 0;
 
-int PWMPin = 9;
-
-int BrightnessButtonPin = 4;
-int brightnessButtonDown = 0;
-int brightness = 255;
+int brightness = 32;
 
 int pushStart = 0;
 int longPressDelay = 400; //time in millisecnods considered to be a long press of a button
@@ -111,18 +115,11 @@ time_t t;
 void setup()
 {
   // initialize the hardware	
-  pinMode(LEDClockPin, OUTPUT); 
-  pinMode(LEDDataPin, OUTPUT); 
-  pinMode(LEDStrobePin, OUTPUT); 
-  pinMode(PWMPin, OUTPUT); 
-  
   pinMode(MinuteButtonPin, INPUT); 
   pinMode(HourButtonPin, INPUT);
-  pinMode(BrightnessButtonPin, INPUT);
   
   digitalWrite(MinuteButtonPin, HIGH);  //set internal pullup
   digitalWrite(HourButtonPin, HIGH); //set internal pullup
-  digitalWrite(BrightnessButtonPin, HIGH); //set internal pullup
 
   //initialize system time from rtc
   Serial.begin(9600);
@@ -131,12 +128,15 @@ void setup()
   Serial.println("moving on");
   msTick=millis();      // Initialise the msTick counter
   displaytime();        // display the current time
+
+  strip.begin();
+  strip.setBrightness(brightness);
+  strip.show(); // Initialize all pixels to 'off'
 }
 
 void loop(void)
 {  
   //selftest(); //uncomment to run in test mode
-  analogWrite(PWMPin, brightness);
   
     // heart of the timer - keep looking at the millisecond timer on the Arduino
     // and increment the seconds counter every 1000 ms
@@ -158,32 +158,50 @@ void loop(void)
     //check to see if buttons are being pressed
     checkHourButton();
     checkMinuteButton();
-    checkBrightnessButton();
+    //checkBrightnessButton();
 }
 
 void ledsoff(void) {
- Display1=0;
- Display2=0;
- Display3=0;
- Display4=0;
+  //turn all leds off
+  for(int i=0; i<256; i++) {
+    strip.setPixelColor(i, strip.Color(0, 0, 0));
+  }
 }
 
-void WriteLEDs(void) {
- // Now we write the actual values to the hardware
- shiftOut(LEDDataPin, LEDClockPin, MSBFIRST, Display4);
- shiftOut(LEDDataPin, LEDClockPin, MSBFIRST, Display3);
- shiftOut(LEDDataPin, LEDClockPin, MSBFIRST, Display2);
- shiftOut(LEDDataPin, LEDClockPin, MSBFIRST, Display1);
- digitalWrite(LEDStrobePin,HIGH);
- delay(2);
- digitalWrite(LEDStrobePin,LOW);
+int getIndex(int y, int x) {
+  //given an x,y coordinate, return the pixel number on the light strip
+  int index;
+  if (MATRIX_TYPE == "progressive") {
+      index = y * 16 + x;
+  } else {
+    if (y == 0)
+    {
+      index = 15 - x;
+    }
+    else if (y % 2 != 0)
+    {
+      index = y * 16 + x;
+    }
+    else
+    {
+      index = (y * 16 + 15) - x;
+    }
+  } 
+  return index;
 }
 
+void DisplayWord(coords word_info[], String timeword) {
+  // Now we write the actual values to the hardware
+  for (int i=0; i<sizeof(word_info); i++) {
+    strip.setPixelColor(getIndex(word_info[i].y, word_info[i].x), strip.Color(128, 0, 0));
+  }
+}
+
+/*
 void selftest(void){
   //cycle through each word and display it
   Serial.print("TEST");
-  analogWrite(PWMPin, 32);
-  
+
   ledsoff(); ITIS; MTEN; HALF; QUARTER; TWENTY; MFIVE; PAST; TO; ONE; TWO; THREE; FOUR; HFIVE; SIX; SEVEN; EIGHT; NINE; HTEN; ELEVEN; TWELVE; OCLOCK; MIN1; MIN2; MIN3; MIN4; WriteLEDs(); delay(2000); 
   
   ledsoff(); ITIS; WriteLEDs(); delay(1000); 
@@ -218,60 +236,48 @@ void selftest(void){
   ledsoff(); MIN4; WriteLEDs(); Serial.println("MIN4"); delay(1000);
   ledsoff(); delay(1000);
  }
+ */
 
 void displayHour(int offset) {
       switch (hourFormat12()+offset) {
         case 1: 
-          ONE; 
-          Serial.println("One ");
+          DisplayWord(ONE, "One");
           break;
         case 2: 
-          TWO; 
-          Serial.println("Two ");
+          DisplayWord(TWO, "Two");
           break;
         case 3: 
-          THREE; 
-          Serial.println("Three ");
+          DisplayWord(THREE, "Three");
           break;
         case 4: 
-          FOUR; 
-          Serial.println("Four ");
+          DisplayWord(FOUR, "Four");
           break;
         case 5: 
-          HFIVE; 
-          Serial.println("Five ");
+          DisplayWord(HFIVE, "Five"); 
           break;
         case 6: 
-          SIX; 
-          Serial.println("Six ");
+          DisplayWord(SIX, "Six");
           break;
         case 7: 
-          SEVEN; 
-          Serial.println("Seven ");
+          DisplayWord(SEVEN, "Seven");
           break;
         case 8: 
-          EIGHT; 
-          Serial.println("Eight ");
+          DisplayWord(EIGHT, "Eight"); 
           break;
         case 9: 
-          NINE; 
-          Serial.println("Nine ");
+          DisplayWord(NINE, "Nine");
           break;
         case 10: 
-          HTEN; 
-          Serial.println("Ten ");
+          DisplayWord(HTEN, "Ten"); 
           break;
         case 11: 
-          ELEVEN; 
-          Serial.println("Eleven ");
+          DisplayWord(ELEVEN, "Eleven"); 
           break;
         case 12: 
-          TWELVE; 
-          Serial.println("Twelve ");
+          DisplayWord(TWELVE, "Twelve");
           break;
          case 13:
-          ONE;
-          Serial.println("One ");
+          DisplayWord(ONE, "One");
           break;
     }
 }
@@ -279,115 +285,94 @@ void displayHour(int offset) {
 void displaytime(void){
 
   digitalClockDisplay();
-  
-  // start by clearing the display to a known state
   ledsoff();
   
-  ITIS;
-  Serial.print("It is ");
+  DisplayWord(ITIS, "It Is");
 
   // now we display the appropriate minute counter
   if ((minute()>4) && (minute()<10)) { 
-    MFIVE; 
-    Serial.print("Five ");
+    DisplayWord(MFIVE, "Five");
   } 
   if ((minute()>9) && (minute()<15)) { 
-    MTEN; 
-    Serial.print("Ten ");
+    DisplayWord(MTEN, "Ten");
   }
   if ((minute()>14) && (minute()<20)) {
-    QUARTER; 
-      Serial.print("A Quarter ");
+    DisplayWord(QUARTER, "Quarter"); 
   }
   if ((minute()>19) && (minute()<25)) { 
-    TWENTY; 
-    Serial.print("Twenty ");
+    DisplayWord(TWENTY,"Twenty");
   }
   if ((minute()>24) && (minute()<30)) { 
-    TWENTY; 
-    MFIVE; 
-    Serial.print("Twenty Five ");
+    DisplayWord(TWENTY, "Twenty");
+    DisplayWord(MFIVE, "Five");
   }  
   if ((minute()>29) && (minute()<35)) {
-    HALF;
-    Serial.print("Half ");
+    DisplayWord(HALF, "Half");
   }
   if ((minute()>34) && (minute()<40)) { 
-    TWENTY; 
-    MFIVE; 
-    Serial.print("Twenty Five ");
+    DisplayWord(TWENTY, "Twenty"); 
+    DisplayWord(MFIVE, "Five"); 
   }  
   if ((minute()>39) && (minute()<45)) { 
-    TWENTY; 
-    Serial.print("Twenty ");
+    DisplayWord(TWENTY, "Twenty");
   }
   if ((minute()>44) && (minute()<50)) {
-    QUARTER; 
-    Serial.print("A Quarter ");
+    DisplayWord(QUARTER, "Quarter");
   }
   if ((minute()>49) && (minute()<55)) { 
-    MTEN; 
-    Serial.print("Ten ");
+    DisplayWord(MTEN, "Ten");
   } 
   if (minute()>54) { 
-    MFIVE; 
-    Serial.print("Five ");
+    DisplayWord(MFIVE, "Five");
   }
 
   if ((minute()<5))
   {
     displayHour(0);
-    OCLOCK;
-    Serial.println("O'Clock");
+    DisplayWord(OCLOCK, "O'Clock");
   }
   else
     if ((minute() < 35) && (minute() >4))
     {
-      PAST;
-      Serial.print("Past ");
+      DisplayWord(PAST, "Past");
       displayHour(0);
     }
     else
     {
       // if we are greater than 34 minutes past the hour then display
       // the next hour, as we will be displaying a 'to' sign
-      TO;
-      Serial.print("To ");
+      DisplayWord(TO, "To");
       displayHour(1);
     }
     
     //display individual minutes
     switch(minute() % 5) {
       case 0:
-        Serial.println("");
         break;
       case 1:
-        MIN1;
-        Serial.println(".");
+        DisplayWord(MIN1, ".");
         break;
       case 2:
-        MIN1;
-        MIN2;
-        Serial.println("..");
+        DisplayWord(MIN1, ".");
+        DisplayWord(MIN2, ".");
         break;
       case 3:
-        MIN1;
-        MIN2;
-        MIN3;
-        Serial.println("...");
+        DisplayWord(MIN1, ".");
+        DisplayWord(MIN2, ".");
+        DisplayWord(MIN3, ".");
         break;
       case 4:
-        MIN1;
-        MIN2;
-        MIN3;
-        MIN4;
-        Serial.println("....");
+        DisplayWord(MIN1, ".");
+        DisplayWord(MIN2, ".");
+        DisplayWord(MIN3, ".");
+        DisplayWord(MIN4, ".");
         break;
    }
-   WriteLEDs();
+   strip.show();
 }
 
 
+/*
 void decreaseBrightness(void) {
    //if brightness isn't on lowest setting, cut in half. 
    //otherwise return to full brightness
@@ -400,6 +385,7 @@ void decreaseBrightness(void) {
    Serial.println("Brightness set to ");
    Serial.println(brightness);
  }
+ */
  
 void checkHourButton() {
    //set hours based on hour button behavior
@@ -468,6 +454,7 @@ void checkMinuteButton() {
   }  
 }
 
+/*
 void checkBrightnessButton() {
   //set brightness based on brightness button behavior
   if (digitalRead(BrightnessButtonPin) == 0) {
@@ -480,6 +467,7 @@ void checkBrightnessButton() {
     displaytime();
   }
 }
+*/
 
 void digitalClockDisplay(){
   // digital clock display of the time
